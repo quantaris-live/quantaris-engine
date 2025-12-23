@@ -1,5 +1,5 @@
 {
-  "name": "@quantaris/engine",
+  "name": "@quantaris-live/engine",
   "version": "0.1.0",
   "description": "Deterministic game logic for Quantaris — pure TypeScript, zero dependencies",
   "type": "module",
