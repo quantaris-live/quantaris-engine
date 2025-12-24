@@ -31,8 +31,11 @@ import type {
 import {
   PULSE_DAMAGE,
   SHIELD_REDUCTION,
+  MAX_TURNS,
   ActionType,
   GamePhase,
+  EntityType,
+  EventType,
 } from "../core/types.js";
 import { positionsEqual, isInBounds, getEntityAt } from "../core/state.js";
 import { applyDirection } from "../actions/validate.js";
@@ -111,17 +114,17 @@ function getQuantarById(state: ResolutionState, id: string): MutableQuantar | un
 function getEntityAtPosition(
   state: ResolutionState,
   position: Position
-): { type: "quantar"; entity: MutableQuantar } | { type: "core"; entity: MutableCore } | null {
+): { type: typeof EntityType.Quantar; entity: MutableQuantar } | { type: typeof EntityType.Core; entity: MutableCore } | null {
   const quantar = state.quantars.find((q) => q.hp > 0 && positionsEqual(q.position, position));
   if (quantar) {
-    return { type: "quantar", entity: quantar };
+    return { type: EntityType.Quantar, entity: quantar };
   }
 
   if (positionsEqual(state.cores.A.position, position)) {
-    return { type: "core", entity: state.cores.A };
+    return { type: EntityType.Core, entity: state.cores.A };
   }
   if (positionsEqual(state.cores.B.position, position)) {
-    return { type: "core", entity: state.cores.B };
+    return { type: EntityType.Core, entity: state.cores.B };
   }
 
   return null;
@@ -154,7 +157,7 @@ function resolveMoves(
 
     if (!isInBounds(to)) {
       state.events.push({
-        type: "MOVE_BLOCKED",
+        type: EventType.MoveBlocked,
         quantarId: quantar.id,
         from,
         direction: action.direction,
@@ -174,7 +177,7 @@ function resolveMoves(
 
     if (coreCollision) {
       state.events.push({
-        type: "MOVE_BLOCKED",
+        type: EventType.MoveBlocked,
         quantarId: move.quantar.id,
         from: move.from,
         direction: move.action.direction,
@@ -201,7 +204,7 @@ function resolveMoves(
     // Multiple Quantars trying to move to same cell
     if ((destinationCounts.get(destKey) ?? 0) > 1) {
       state.events.push({
-        type: "MOVE_BLOCKED",
+        type: EventType.MoveBlocked,
         quantarId: move.quantar.id,
         from: move.from,
         direction: move.action.direction,
@@ -219,7 +222,7 @@ function resolveMoves(
       // If the occupant is not moving, or moving elsewhere, we're blocked
       if (!occupantMove) {
         state.events.push({
-          type: "MOVE_BLOCKED",
+          type: EventType.MoveBlocked,
           quantarId: move.quantar.id,
           from: move.from,
           direction: move.action.direction,
@@ -230,7 +233,7 @@ function resolveMoves(
       // If we're swapping positions (A→B, B→A), both are blocked
       if (positionsEqual(occupantMove.to, move.from)) {
         state.events.push({
-          type: "MOVE_BLOCKED",
+          type: EventType.MoveBlocked,
           quantarId: move.quantar.id,
           from: move.from,
           direction: move.action.direction,
@@ -247,7 +250,7 @@ function resolveMoves(
   for (const move of finalMoves) {
     move.quantar.position = { ...move.to };
     state.events.push({
-      type: "MOVE",
+      type: EventType.Move,
       quantarId: move.quantar.id,
       from: move.from,
       to: move.to,
@@ -271,7 +274,7 @@ function resolveShields(
 
     quantar.shielded = true;
     state.events.push({
-      type: "SHIELD_ACTIVATED",
+      type: EventType.ShieldActivated,
       quantarId: quantar.id,
     });
   }
@@ -292,7 +295,7 @@ function resolvePulses(
     if (!quantar || quantar.hp <= 0) continue;
 
     state.events.push({
-      type: "PULSE_FIRED",
+      type: EventType.PulseFired,
       quantarId: quantar.id,
       from: { ...quantar.position },
       direction: action.direction,
@@ -300,7 +303,7 @@ function resolvePulses(
 
     // Trace the pulse beam
     let currentPos = { ...quantar.position };
-    let hitTarget: { type: "quantar"; entity: MutableQuantar } | { type: "core"; entity: MutableCore } | null = null;
+    let hitTarget: { type: typeof EntityType.Quantar; entity: MutableQuantar } | { type: typeof EntityType.Core; entity: MutableCore } | null = null;
 
     while (true) {
       currentPos = applyDirection(currentPos, action.direction);
@@ -319,14 +322,14 @@ function resolvePulses(
     if (hitTarget) {
       hitTarget.entity.pendingDamage += PULSE_DAMAGE;
       state.events.push({
-        type: "PULSE_HIT",
-        targetId: hitTarget.type === "quantar" ? hitTarget.entity.id : `core_${hitTarget.entity.owner}`,
+        type: EventType.PulseHit,
+        targetId: hitTarget.type === EntityType.Quantar ? hitTarget.entity.id : `core_${hitTarget.entity.owner}`,
         targetType: hitTarget.type,
         damage: PULSE_DAMAGE,
       });
     } else {
       state.events.push({
-        type: "PULSE_MISS",
+        type: EventType.PulseMiss,
         quantarId: quantar.id,
       });
     }
@@ -350,7 +353,7 @@ function applyDamage(state: ResolutionState): void {
 
       quantar.hp -= actualDamage;
       state.events.push({
-        type: "DAMAGE_APPLIED",
+        type: EventType.DamageApplied,
         targetId: quantar.id,
         damage: actualDamage,
         remainingHp: quantar.hp,
@@ -365,7 +368,7 @@ function applyDamage(state: ResolutionState): void {
     if (core.pendingDamage > 0) {
       core.hp -= core.pendingDamage;
       state.events.push({
-        type: "DAMAGE_APPLIED",
+        type: EventType.DamageApplied,
         targetId: `core_${core.owner}`,
         damage: core.pendingDamage,
         remainingHp: core.hp,
@@ -383,9 +386,9 @@ function removeDeadEntities(state: ResolutionState): void {
   for (const quantar of state.quantars) {
     if (quantar.hp <= 0) {
       state.events.push({
-        type: "ENTITY_DESTROYED",
+        type: EventType.EntityDestroyed,
         entityId: quantar.id,
-        entityType: "quantar",
+        entityType: EntityType.Quantar,
       });
     }
   }
@@ -397,9 +400,9 @@ function removeDeadEntities(state: ResolutionState): void {
   for (const core of [state.cores.A, state.cores.B]) {
     if (core.hp <= 0) {
       state.events.push({
-        type: "ENTITY_DESTROYED",
+        type: EventType.EntityDestroyed,
         entityId: `core_${core.owner}`,
-        entityType: "core",
+        entityType: EntityType.Core,
       });
     }
   }
@@ -468,21 +471,35 @@ export function resolveTurn(input: TurnInput): TurnResult {
 
   if (winner) {
     resolutionState.events.push({
-      type: "GAME_OVER",
+      type: EventType.GameOver,
       winner,
     });
   }
 
+  // Check for max turns (draw condition)
+  const nextTurn = state.turn + 1;
+  const isMaxTurnsReached = !winner && nextTurn >= MAX_TURNS;
+  
+  if (isMaxTurnsReached) {
+    resolutionState.events.push({
+      type: EventType.Draw,
+      reason: "max_turns",
+    });
+  }
+
+  // Game ends if there's a winner OR max turns reached
+  const gameEnded = winner !== null || isMaxTurnsReached;
+
   // Build final immutable state
   const newState: GameState = {
-    turn: state.turn + 1,
-    phase: winner ? GamePhase.Ended : GamePhase.Playing,
+    turn: nextTurn,
+    phase: gameEnded ? GamePhase.Ended : GamePhase.Playing,
     quantars: resolutionState.quantars.map(toImmutableQuantar),
     cores: {
       A: toImmutableCore(resolutionState.cores.A),
       B: toImmutableCore(resolutionState.cores.B),
     },
-    winner,
+    winner, // null for draw
   };
 
   const log: TurnLog = {

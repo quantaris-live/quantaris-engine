@@ -4,6 +4,7 @@
  * Functions for creating and managing game state.
  */
 import type { GameState, Quantar, Core, PlayerId, Position } from "./types.js";
+import { EntityType } from "./types.js";
 /**
  * Create the initial game state
  *
@@ -34,10 +35,10 @@ export declare function positionsEqual(a: Position, b: Position): boolean;
  * Get entity at a position (Quantar, Core, or null)
  */
 export declare function getEntityAt(state: GameState, position: Position): {
-    type: "quantar";
+    type: typeof EntityType.Quantar;
     entity: Quantar;
 } | {
-    type: "core";
+    type: typeof EntityType.Core;
     entity: Core;
 } | null;
 /**

@@ -58,6 +58,8 @@ export {
   Direction,
   ActionType,
   GamePhase,
+  EntityType,
+  EventType,
   ALL_DIRECTIONS,
   // Constants
   BOARD_SIZE,
@@ -66,6 +68,7 @@ export {
   PULSE_DAMAGE,
   SHIELD_REDUCTION,
   QUANTARS_PER_PLAYER,
+  MAX_TURNS,
   // State functions
   createInitialState,
   getQuantar,

@@ -11,10 +11,12 @@ import {
   CORE_HP,
   QUANTAR_HP,
   QUANTARS_PER_PLAYER,
+  MAX_TURNS,
   Direction,
   ActionType,
   GamePhase,
   Player,
+  EventType,
   type Action,
   type GameState,
 } from "../src/index.js";
@@ -353,6 +355,106 @@ describe("win condition", () => {
 
     // Let's just check the state progresses
     expect(state.turn).toBe(2);
+  });
+});
+
+describe("MAX_TURNS and draw condition", () => {
+  it("has MAX_TURNS constant defined", () => {
+    expect(MAX_TURNS).toBeDefined();
+    expect(MAX_TURNS).toBe(50);
+  });
+
+  it("triggers draw when MAX_TURNS is reached", () => {
+    // Create a modified state at turn 49 (just before MAX_TURNS)
+    const initialState = createInitialState();
+    
+    // Manually set turn to 49 to test draw condition
+    const stateAtTurn49: GameState = {
+      ...initialState,
+      turn: 49,
+    };
+
+    const actionsA: Action[] = [
+      { type: ActionType.Shield, quantarId: "A1" },
+      { type: ActionType.Shield, quantarId: "A2" },
+      { type: ActionType.Shield, quantarId: "A3" },
+    ];
+    const actionsB: Action[] = [
+      { type: ActionType.Shield, quantarId: "B1" },
+      { type: ActionType.Shield, quantarId: "B2" },
+      { type: ActionType.Shield, quantarId: "B3" },
+    ];
+
+    const result = resolveTurn({ state: stateAtTurn49, actionsA, actionsB });
+
+    // Turn 49 -> 50, which equals MAX_TURNS, triggers draw
+    expect(result.state.turn).toBe(50);
+    expect(result.state.phase).toBe(GamePhase.Ended);
+    expect(result.state.winner).toBeNull(); // Draw = no winner
+
+    // Check for DRAW event in log
+    const drawEvent = result.log.events.find(e => e.type === EventType.Draw);
+    expect(drawEvent).toBeDefined();
+    expect((drawEvent as { type: string; reason: string }).reason).toBe("max_turns");
+  });
+
+  it("does not trigger draw before MAX_TURNS", () => {
+    const initialState = createInitialState();
+    
+    const stateAtTurn48: GameState = {
+      ...initialState,
+      turn: 48,
+    };
+
+    const actionsA: Action[] = [
+      { type: ActionType.Shield, quantarId: "A1" },
+      { type: ActionType.Shield, quantarId: "A2" },
+      { type: ActionType.Shield, quantarId: "A3" },
+    ];
+    const actionsB: Action[] = [
+      { type: ActionType.Shield, quantarId: "B1" },
+      { type: ActionType.Shield, quantarId: "B2" },
+      { type: ActionType.Shield, quantarId: "B3" },
+    ];
+
+    const result = resolveTurn({ state: stateAtTurn48, actionsA, actionsB });
+
+    expect(result.state.turn).toBe(49);
+    expect(result.state.phase).toBe(GamePhase.Playing);
+    expect(result.state.winner).toBeNull();
+
+    // No DRAW event
+    const drawEvent = result.log.events.find(e => e.type === EventType.Draw);
+    expect(drawEvent).toBeUndefined();
+  });
+});
+
+describe("EventType constants", () => {
+  it("uses consistent event types", () => {
+    const state = createInitialState();
+    
+    const actionsA: Action[] = [
+      { type: ActionType.Move, quantarId: "A1", direction: Direction.North },
+      { type: ActionType.Pulse, quantarId: "A2", direction: Direction.North },
+      { type: ActionType.Shield, quantarId: "A3" },
+    ];
+    const actionsB: Action[] = [
+      { type: ActionType.Shield, quantarId: "B1" },
+      { type: ActionType.Shield, quantarId: "B2" },
+      { type: ActionType.Shield, quantarId: "B3" },
+    ];
+
+    const result = resolveTurn({ state, actionsA, actionsB });
+
+    // Check that events use the defined EventType constants
+    const moveEvent = result.log.events.find(e => e.type === EventType.Move);
+    expect(moveEvent).toBeDefined();
+
+    const shieldEvents = result.log.events.filter(e => e.type === EventType.ShieldActivated);
+    expect(shieldEvents.length).toBeGreaterThan(0);
+
+    const pulseEvent = result.log.events.find(e => e.type === EventType.PulseFired);
+    expect(pulseEvent).toBeDefined();
   });
 });
 

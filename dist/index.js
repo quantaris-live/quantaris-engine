@@ -38,9 +38,9 @@
 // Core types and state management
 export { 
 // Enums (runtime + type)
-Player, Direction, ActionType, GamePhase, ALL_DIRECTIONS, 
+Player, Direction, ActionType, GamePhase, EntityType, EventType, ALL_DIRECTIONS, 
 // Constants
-BOARD_SIZE, CORE_HP, QUANTAR_HP, PULSE_DAMAGE, SHIELD_REDUCTION, QUANTARS_PER_PLAYER, 
+BOARD_SIZE, CORE_HP, QUANTAR_HP, PULSE_DAMAGE, SHIELD_REDUCTION, QUANTARS_PER_PLAYER, MAX_TURNS, 
 // State functions
 createInitialState, getQuantar, getPlayerQuantars, getPlayerCore, isInBounds, positionsEqual, getEntityAt, getOpponent, } from "./core/index.js";
 // Action validation

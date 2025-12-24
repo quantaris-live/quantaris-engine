@@ -134,17 +134,32 @@ export interface TurnInput {
   readonly actionsB: readonly Action[];
 }
 
+// Event type constants
+export const EventType = {
+  Move: "MOVE",
+  MoveBlocked: "MOVE_BLOCKED",
+  PulseFired: "PULSE_FIRED",
+  PulseHit: "PULSE_HIT",
+  PulseMiss: "PULSE_MISS",
+  ShieldActivated: "SHIELD_ACTIVATED",
+  DamageApplied: "DAMAGE_APPLIED",
+  EntityDestroyed: "ENTITY_DESTROYED",
+  GameOver: "GAME_OVER",
+  Draw: "DRAW",
+} as const;
+
 /** Single event in the turn log */
 export type TurnEvent =
-  | { readonly type: "MOVE"; readonly quantarId: string; readonly from: Position; readonly to: Position }
-  | { readonly type: "MOVE_BLOCKED"; readonly quantarId: string; readonly from: Position; readonly direction: Direction; readonly reason: string }
-  | { readonly type: "PULSE_FIRED"; readonly quantarId: string; readonly from: Position; readonly direction: Direction }
-  | { readonly type: "PULSE_HIT"; readonly targetId: string; readonly targetType: "quantar" | "core"; readonly damage: number }
-  | { readonly type: "PULSE_MISS"; readonly quantarId: string }
-  | { readonly type: "SHIELD_ACTIVATED"; readonly quantarId: string }
-  | { readonly type: "DAMAGE_APPLIED"; readonly targetId: string; readonly damage: number; readonly remainingHp: number }
-  | { readonly type: "ENTITY_DESTROYED"; readonly entityId: string; readonly entityType: "quantar" | "core" }
-  | { readonly type: "GAME_OVER"; readonly winner: PlayerId };
+  | { readonly type: typeof EventType.Move; readonly quantarId: string; readonly from: Position; readonly to: Position }
+  | { readonly type: typeof EventType.MoveBlocked; readonly quantarId: string; readonly from: Position; readonly direction: Direction; readonly reason: string }
+  | { readonly type: typeof EventType.PulseFired; readonly quantarId: string; readonly from: Position; readonly direction: Direction }
+  | { readonly type: typeof EventType.PulseHit; readonly targetId: string; readonly targetType: EntityType; readonly damage: number }
+  | { readonly type: typeof EventType.PulseMiss; readonly quantarId: string }
+  | { readonly type: typeof EventType.ShieldActivated; readonly quantarId: string }
+  | { readonly type: typeof EventType.DamageApplied; readonly targetId: string; readonly damage: number; readonly remainingHp: number }
+  | { readonly type: typeof EventType.EntityDestroyed; readonly entityId: string; readonly entityType: EntityType }
+  | { readonly type: typeof EventType.GameOver; readonly winner: PlayerId }
+  | { readonly type: typeof EventType.Draw; readonly reason: "max_turns" };
 
 /** Log of everything that happened in a turn */
 export interface TurnLog {
@@ -168,4 +183,12 @@ export const QUANTAR_HP = 2;
 export const PULSE_DAMAGE = 1;
 export const SHIELD_REDUCTION = 1;
 export const QUANTARS_PER_PLAYER = 3;
+export const MAX_TURNS = 50;
+
+// Entity types for events
+export const EntityType = {
+  Quantar: "quantar",
+  Core: "core",
+} as const;
+export type EntityType = (typeof EntityType)[keyof typeof EntityType];
 

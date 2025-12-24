@@ -3,7 +3,7 @@
  *
  * Functions for creating and managing game state.
  */
-import { CORE_HP, QUANTAR_HP, GamePhase } from "./types.js";
+import { CORE_HP, QUANTAR_HP, GamePhase, EntityType } from "./types.js";
 /**
  * Initial placement from whitepaper:
  *
@@ -113,14 +113,14 @@ export function getEntityAt(state, position) {
     // Check Quantars
     const quantar = state.quantars.find((q) => positionsEqual(q.position, position));
     if (quantar) {
-        return { type: "quantar", entity: quantar };
+        return { type: EntityType.Quantar, entity: quantar };
     }
     // Check Cores
     if (positionsEqual(state.cores.A.position, position)) {
-        return { type: "core", entity: state.cores.A };
+        return { type: EntityType.Core, entity: state.cores.A };
     }
     if (positionsEqual(state.cores.B.position, position)) {
-        return { type: "core", entity: state.cores.B };
+        return { type: EntityType.Core, entity: state.cores.B };
     }
     return null;
 }

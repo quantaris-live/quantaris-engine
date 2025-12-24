@@ -5,7 +5,7 @@
  */
 
 import type { GameState, Quantar, Core, PlayerId, Position } from "./types.js";
-import { CORE_HP, QUANTAR_HP, GamePhase } from "./types.js";
+import { CORE_HP, QUANTAR_HP, GamePhase, EntityType } from "./types.js";
 
 /**
  * Initial placement from whitepaper:
@@ -137,21 +137,21 @@ export function positionsEqual(a: Position, b: Position): boolean {
 export function getEntityAt(
   state: GameState,
   position: Position
-): { type: "quantar"; entity: Quantar } | { type: "core"; entity: Core } | null {
+): { type: typeof EntityType.Quantar; entity: Quantar } | { type: typeof EntityType.Core; entity: Core } | null {
   // Check Quantars
   const quantar = state.quantars.find((q) =>
     positionsEqual(q.position, position)
   );
   if (quantar) {
-    return { type: "quantar", entity: quantar };
+    return { type: EntityType.Quantar, entity: quantar };
   }
 
   // Check Cores
   if (positionsEqual(state.cores.A.position, position)) {
-    return { type: "core", entity: state.cores.A };
+    return { type: EntityType.Core, entity: state.cores.A };
   }
   if (positionsEqual(state.cores.B.position, position)) {
-    return { type: "core", entity: state.cores.B };
+    return { type: EntityType.Core, entity: state.cores.B };
   }
 
   return null;
