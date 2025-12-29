@@ -13,10 +13,12 @@ import {
   QUANTARS_PER_PLAYER,
   MAX_TURNS,
   Direction,
+  PulseDirection,
   ActionType,
   GamePhase,
   Player,
   EventType,
+  isDiagonalPulse,
   type Action,
   type GameState,
 } from "../src/index.js";
@@ -455,6 +457,224 @@ describe("EventType constants", () => {
 
     const pulseEvent = result.log.events.find(e => e.type === EventType.PulseFired);
     expect(pulseEvent).toBeDefined();
+  });
+});
+
+describe("Terminal Loss condition", () => {
+  it("player with 0 quantars loses immediately", () => {
+    // Create a state where all of player A's quantars are dead
+    const initialState = createInitialState();
+    
+    // Manually kill all A's quantars
+    const stateWithDeadQuantars: GameState = {
+      ...initialState,
+      quantars: initialState.quantars.map(q => 
+        q.owner === "A" ? { ...q, hp: 0 } : q
+      ),
+    };
+
+    // B just shields
+    const actionsA: Action[] = [];
+    const actionsB: Action[] = [
+      { type: ActionType.Shield, quantarId: "B1" },
+      { type: ActionType.Shield, quantarId: "B2" },
+      { type: ActionType.Shield, quantarId: "B3" },
+    ];
+
+    const result = resolveTurn({ state: stateWithDeadQuantars, actionsA, actionsB });
+
+    expect(result.state.phase).toBe(GamePhase.Ended);
+    expect(result.state.winner).toBe("B");
+
+    // Check for TERMINAL_LOSS event
+    const terminalLossEvent = result.log.events.find(e => e.type === EventType.TerminalLoss);
+    expect(terminalLossEvent).toBeDefined();
+    if (terminalLossEvent && terminalLossEvent.type === EventType.TerminalLoss) {
+      expect(terminalLossEvent.loser).toBe("A");
+      expect(terminalLossEvent.reason).toBe("no_quantars");
+    }
+  });
+
+  it("both players losing all quantars simultaneously results in draw", () => {
+    const initialState = createInitialState();
+    
+    // All quantars are dead
+    const stateWithAllDead: GameState = {
+      ...initialState,
+      quantars: initialState.quantars.map(q => ({ ...q, hp: 0 })),
+    };
+
+    const actionsA: Action[] = [];
+    const actionsB: Action[] = [];
+
+    const result = resolveTurn({ state: stateWithAllDead, actionsA, actionsB });
+
+    expect(result.state.phase).toBe(GamePhase.Ended);
+    expect(result.state.winner).toBeNull(); // Draw
+  });
+
+  it("core destruction takes priority over terminal loss", () => {
+    const initialState = createInitialState();
+    
+    // A's core is destroyed, but both sides have quantars
+    const stateWithDeadCoreA: GameState = {
+      ...initialState,
+      cores: {
+        A: { ...initialState.cores.A, hp: 0 },
+        B: initialState.cores.B,
+      },
+    };
+
+    const actionsA: Action[] = [
+      { type: ActionType.Shield, quantarId: "A1" },
+    ];
+    const actionsB: Action[] = [
+      { type: ActionType.Shield, quantarId: "B1" },
+    ];
+
+    const result = resolveTurn({ state: stateWithDeadCoreA, actionsA, actionsB });
+
+    expect(result.state.phase).toBe(GamePhase.Ended);
+    expect(result.state.winner).toBe("B");
+
+    // Should NOT have TERMINAL_LOSS event, only GAME_OVER
+    const terminalLossEvent = result.log.events.find(e => e.type === EventType.TerminalLoss);
+    expect(terminalLossEvent).toBeUndefined();
+
+    const gameOverEvent = result.log.events.find(e => e.type === EventType.GameOver);
+    expect(gameOverEvent).toBeDefined();
+  });
+});
+
+describe("Diagonal pulse (v1.1)", () => {
+  it("supports all 8 pulse directions", () => {
+    expect(PulseDirection.North).toBe("N");
+    expect(PulseDirection.East).toBe("E");
+    expect(PulseDirection.South).toBe("S");
+    expect(PulseDirection.West).toBe("W");
+    expect(PulseDirection.NorthEast).toBe("NE");
+    expect(PulseDirection.NorthWest).toBe("NW");
+    expect(PulseDirection.SouthEast).toBe("SE");
+    expect(PulseDirection.SouthWest).toBe("SW");
+  });
+
+  it("identifies diagonal directions correctly", () => {
+    expect(isDiagonalPulse(PulseDirection.North)).toBe(false);
+    expect(isDiagonalPulse(PulseDirection.East)).toBe(false);
+    expect(isDiagonalPulse(PulseDirection.South)).toBe(false);
+    expect(isDiagonalPulse(PulseDirection.West)).toBe(false);
+    expect(isDiagonalPulse(PulseDirection.NorthEast)).toBe(true);
+    expect(isDiagonalPulse(PulseDirection.NorthWest)).toBe(true);
+    expect(isDiagonalPulse(PulseDirection.SouthEast)).toBe(true);
+    expect(isDiagonalPulse(PulseDirection.SouthWest)).toBe(true);
+  });
+
+  it("diagonal pulse only hits adjacent cells (range=1)", () => {
+    const state = createInitialState();
+    
+    // Create a state where A1 is at (2,2) and B1 is at (3,3) - diagonal
+    const customState: GameState = {
+      ...state,
+      quantars: [
+        { id: "A1", owner: "A", position: { x: 2, y: 2 }, hp: 2 },
+        { id: "A2", owner: "A", position: { x: 0, y: 0 }, hp: 2 },
+        { id: "A3", owner: "A", position: { x: 0, y: 1 }, hp: 2 },
+        { id: "B1", owner: "B", position: { x: 3, y: 3 }, hp: 2 },
+        { id: "B2", owner: "B", position: { x: 8, y: 7 }, hp: 2 },
+        { id: "B3", owner: "B", position: { x: 8, y: 6 }, hp: 2 },
+      ],
+    };
+
+    const actionsA: Action[] = [
+      { type: ActionType.Pulse, quantarId: "A1", direction: PulseDirection.SouthEast },
+      { type: ActionType.Shield, quantarId: "A2" },
+      { type: ActionType.Shield, quantarId: "A3" },
+    ];
+    const actionsB: Action[] = [
+      { type: ActionType.Shield, quantarId: "B1" },
+      { type: ActionType.Shield, quantarId: "B2" },
+      { type: ActionType.Shield, quantarId: "B3" },
+    ];
+
+    const result = resolveTurn({ state: customState, actionsA, actionsB });
+
+    // A1's diagonal pulse should hit B1 at (3,3)
+    const pulseHit = result.log.events.find(e => 
+      e.type === EventType.PulseHit && e.targetId === "B1"
+    );
+    expect(pulseHit).toBeDefined();
+  });
+
+  it("diagonal pulse misses if no target in adjacent diagonal cell", () => {
+    const state = createInitialState();
+    
+    // A1 at (2,2), nothing at (3,3)
+    const customState: GameState = {
+      ...state,
+      quantars: [
+        { id: "A1", owner: "A", position: { x: 2, y: 2 }, hp: 2 },
+        { id: "A2", owner: "A", position: { x: 0, y: 0 }, hp: 2 },
+        { id: "A3", owner: "A", position: { x: 0, y: 1 }, hp: 2 },
+        { id: "B1", owner: "B", position: { x: 5, y: 5 }, hp: 2 }, // Far away
+        { id: "B2", owner: "B", position: { x: 8, y: 7 }, hp: 2 },
+        { id: "B3", owner: "B", position: { x: 8, y: 6 }, hp: 2 },
+      ],
+    };
+
+    const actionsA: Action[] = [
+      { type: ActionType.Pulse, quantarId: "A1", direction: PulseDirection.SouthEast },
+      { type: ActionType.Shield, quantarId: "A2" },
+      { type: ActionType.Shield, quantarId: "A3" },
+    ];
+    const actionsB: Action[] = [
+      { type: ActionType.Shield, quantarId: "B1" },
+      { type: ActionType.Shield, quantarId: "B2" },
+      { type: ActionType.Shield, quantarId: "B3" },
+    ];
+
+    const result = resolveTurn({ state: customState, actionsA, actionsB });
+
+    // Should miss - B1 is at (5,5), not (3,3)
+    const pulseMiss = result.log.events.find(e => 
+      e.type === EventType.PulseMiss && e.quantarId === "A1"
+    );
+    expect(pulseMiss).toBeDefined();
+  });
+
+  it("orthogonal pulse still travels full range", () => {
+    const state = createInitialState();
+    
+    // A1 at (0,4), B1 at (5,4) - orthogonal line
+    const customState: GameState = {
+      ...state,
+      quantars: [
+        { id: "A1", owner: "A", position: { x: 0, y: 4 }, hp: 2 },
+        { id: "A2", owner: "A", position: { x: 0, y: 0 }, hp: 2 },
+        { id: "A3", owner: "A", position: { x: 0, y: 1 }, hp: 2 },
+        { id: "B1", owner: "B", position: { x: 5, y: 4 }, hp: 2 }, // 5 cells away, same row
+        { id: "B2", owner: "B", position: { x: 8, y: 7 }, hp: 2 },
+        { id: "B3", owner: "B", position: { x: 8, y: 6 }, hp: 2 },
+      ],
+    };
+
+    const actionsA: Action[] = [
+      { type: ActionType.Pulse, quantarId: "A1", direction: PulseDirection.East },
+      { type: ActionType.Shield, quantarId: "A2" },
+      { type: ActionType.Shield, quantarId: "A3" },
+    ];
+    const actionsB: Action[] = [
+      { type: ActionType.Shield, quantarId: "B1" },
+      { type: ActionType.Shield, quantarId: "B2" },
+      { type: ActionType.Shield, quantarId: "B3" },
+    ];
+
+    const result = resolveTurn({ state: customState, actionsA, actionsB });
+
+    // Orthogonal pulse should hit B1 even though it's 5 cells away
+    const pulseHit = result.log.events.find(e => 
+      e.type === EventType.PulseHit && e.targetId === "B1"
+    );
+    expect(pulseHit).toBeDefined();
   });
 });
 

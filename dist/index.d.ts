@@ -35,8 +35,8 @@
  *
  * @packageDocumentation
  */
-export { type PlayerId, type Position, type Quantar, type Core, type Action, type MoveAction, type PulseAction, type ShieldAction, type PlayerActions, type GameState, type TurnInput, type TurnEvent, type TurnLog, type TurnResult, Player, Direction, ActionType, GamePhase, EntityType, EventType, ALL_DIRECTIONS, BOARD_SIZE, CORE_HP, QUANTAR_HP, PULSE_DAMAGE, SHIELD_REDUCTION, QUANTARS_PER_PLAYER, MAX_TURNS, createInitialState, getQuantar, getPlayerQuantars, getPlayerCore, isInBounds, positionsEqual, getEntityAt, getOpponent, } from "./core/index.js";
-export { type ValidationResult, type ValidationSuccess, type ValidationError, type ValidationErrorCode, validateAction, validatePlayerActions, isValidDirection, getDirectionDelta, applyDirection, } from "./actions/index.js";
+export { type PlayerId, type Position, type Quantar, type Core, type Action, type MoveAction, type PulseAction, type ShieldAction, type PlayerActions, type GameState, type TurnInput, type TurnEvent, type TurnLog, type TurnResult, Player, Direction, PulseDirection, ActionType, GamePhase, EntityType, EventType, ALL_DIRECTIONS, ALL_PULSE_DIRECTIONS, DIAGONAL_DIRECTIONS, BOARD_SIZE, CORE_HP, QUANTAR_HP, PULSE_DAMAGE, SHIELD_REDUCTION, QUANTARS_PER_PLAYER, MAX_TURNS, createInitialState, getQuantar, getPlayerQuantars, getPlayerCore, isInBounds, positionsEqual, getEntityAt, getOpponent, } from "./core/index.js";
+export { type ValidationResult, type ValidationSuccess, type ValidationError, type ValidationErrorCode, validateAction, validatePlayerActions, isValidDirection, isValidPulseDirection, isDiagonalPulse, getDirectionDelta, getPulseDirectionDelta, applyDirection, applyPulseDirection, } from "./actions/index.js";
 export { resolveTurn } from "./resolution/index.js";
 export { type Replay, type ReplayTurn, canonicalizeState, canonicalizeActions, hashState, hashActions, hashTurn, statesEqual, createReplayTurn, } from "./hash/index.js";
 //# sourceMappingURL=index.d.ts.map

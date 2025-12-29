@@ -56,11 +56,14 @@ export {
   // Enums (runtime + type)
   Player,
   Direction,
+  PulseDirection,
   ActionType,
   GamePhase,
   EntityType,
   EventType,
   ALL_DIRECTIONS,
+  ALL_PULSE_DIRECTIONS,
+  DIAGONAL_DIRECTIONS,
   // Constants
   BOARD_SIZE,
   CORE_HP,
@@ -89,8 +92,12 @@ export {
   validateAction,
   validatePlayerActions,
   isValidDirection,
+  isValidPulseDirection,
+  isDiagonalPulse,
   getDirectionDelta,
+  getPulseDirectionDelta,
   applyDirection,
+  applyPulseDirection,
 } from "./actions/index.js";
 
 // Turn resolution

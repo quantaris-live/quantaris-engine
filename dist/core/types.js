@@ -14,16 +14,27 @@ export const Player = {
     A: "A",
     B: "B",
 };
-/** Cardinal directions for movement and pulse */
+/** Cardinal directions for movement */
 export const Direction = {
     North: "N",
     East: "E",
     South: "S",
     West: "W",
 };
-/** All valid directions as array (for validation) */
+/** 8 pulse directions: orthogonal (ranged) + diagonal (melee) */
+export const PulseDirection = {
+    North: "N", East: "E", South: "S", West: "W",
+    NorthEast: "NE", NorthWest: "NW", SouthEast: "SE", SouthWest: "SW",
+};
 export const ALL_DIRECTIONS = Object.values(Direction);
-/** Action types */
+export const ALL_PULSE_DIRECTIONS = Object.values(PulseDirection);
+/** Diagonal = melee (range=1) */
+export const DIAGONAL_DIRECTIONS = [
+    PulseDirection.NorthEast,
+    PulseDirection.NorthWest,
+    PulseDirection.SouthEast,
+    PulseDirection.SouthWest,
+];
 export const ActionType = {
     Move: "MOVE",
     Pulse: "PULSE",
@@ -47,6 +58,7 @@ export const EventType = {
     DamageApplied: "DAMAGE_APPLIED",
     EntityDestroyed: "ENTITY_DESTROYED",
     GameOver: "GAME_OVER",
+    TerminalLoss: "TERMINAL_LOSS",
     Draw: "DRAW",
 };
 // ============================================================================

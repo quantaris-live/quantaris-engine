@@ -38,13 +38,13 @@
 // Core types and state management
 export { 
 // Enums (runtime + type)
-Player, Direction, ActionType, GamePhase, EntityType, EventType, ALL_DIRECTIONS, 
+Player, Direction, PulseDirection, ActionType, GamePhase, EntityType, EventType, ALL_DIRECTIONS, ALL_PULSE_DIRECTIONS, DIAGONAL_DIRECTIONS, 
 // Constants
 BOARD_SIZE, CORE_HP, QUANTAR_HP, PULSE_DAMAGE, SHIELD_REDUCTION, QUANTARS_PER_PLAYER, MAX_TURNS, 
 // State functions
 createInitialState, getQuantar, getPlayerQuantars, getPlayerCore, isInBounds, positionsEqual, getEntityAt, getOpponent, } from "./core/index.js";
 // Action validation
-export { validateAction, validatePlayerActions, isValidDirection, getDirectionDelta, applyDirection, } from "./actions/index.js";
+export { validateAction, validatePlayerActions, isValidDirection, isValidPulseDirection, isDiagonalPulse, getDirectionDelta, getPulseDirectionDelta, applyDirection, applyPulseDirection, } from "./actions/index.js";
 // Turn resolution
 export { resolveTurn } from "./resolution/index.js";
 // Hashing and replay

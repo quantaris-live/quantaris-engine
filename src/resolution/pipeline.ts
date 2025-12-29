@@ -38,7 +38,7 @@ import {
   EventType,
 } from "../core/types.js";
 import { positionsEqual, isInBounds, getEntityAt } from "../core/state.js";
-import { applyDirection } from "../actions/validate.js";
+import { applyDirection, applyPulseDirection, isDiagonalPulse } from "../actions/validate.js";
 
 // ============================================================================
 // Internal State (Mutable during resolution)
@@ -294,6 +294,8 @@ function resolvePulses(
     const quantar = getQuantarById(state, action.quantarId);
     if (!quantar || quantar.hp <= 0) continue;
 
+    const isDiagonal = isDiagonalPulse(action.direction);
+
     state.events.push({
       type: EventType.PulseFired,
       quantarId: quantar.id,
@@ -305,17 +307,30 @@ function resolvePulses(
     let currentPos = { ...quantar.position };
     let hitTarget: { type: typeof EntityType.Quantar; entity: MutableQuantar } | { type: typeof EntityType.Core; entity: MutableCore } | null = null;
 
-    while (true) {
-      currentPos = applyDirection(currentPos, action.direction);
-
-      if (!isInBounds(currentPos)) {
-        break; // Pulse goes off board
+    if (isDiagonal) {
+      // Diagonal pulse: melee, range=1 (only check adjacent cell)
+      currentPos = applyPulseDirection(currentPos, action.direction);
+      
+      if (isInBounds(currentPos)) {
+        const entity = getEntityAtPosition(state, currentPos);
+        if (entity) {
+          hitTarget = entity;
+        }
       }
+    } else {
+      // Orthogonal pulse: ranged, travels until first hit
+      while (true) {
+        currentPos = applyPulseDirection(currentPos, action.direction);
 
-      const entity = getEntityAtPosition(state, currentPos);
-      if (entity) {
-        hitTarget = entity;
-        break;
+        if (!isInBounds(currentPos)) {
+          break; // Pulse goes off board
+        }
+
+        const entity = getEntityAtPosition(state, currentPos);
+        if (entity) {
+          hitTarget = entity;
+          break;
+        }
       }
     }
 
@@ -412,25 +427,49 @@ function removeDeadEntities(state: ResolutionState): void {
 // Phase 6: Check Win Condition
 // ============================================================================
 
-function checkWinCondition(state: ResolutionState): PlayerId | null {
+interface WinConditionResult {
+  winner: PlayerId | null;
+  terminalLoss: PlayerId | null; // Who lost due to 0 quantars (for event logging)
+  isDraw: boolean; // Both players lost simultaneously
+}
+
+function checkWinCondition(state: ResolutionState): WinConditionResult {
+  // Primary Win: Core destroyed
   const coreADead = state.cores.A.hp <= 0;
   const coreBDead = state.cores.B.hp <= 0;
 
   if (coreADead && coreBDead) {
     // Both cores destroyed simultaneously - draw (no winner)
-    // For now, we'll say no winner (could be a tie rule)
-    return null;
+    return { winner: null, terminalLoss: null, isDraw: true };
   }
 
   if (coreADead) {
-    return "B"; // B wins
+    return { winner: "B", terminalLoss: null, isDraw: false };
   }
 
   if (coreBDead) {
-    return "A"; // A wins
+    return { winner: "A", terminalLoss: null, isDraw: false };
   }
 
-  return null;
+  // Terminal Loss: 0 quantars = immediate loss
+  // If player has no living quantars at end of turn, they lose
+  const quantarsA = state.quantars.filter(q => q.owner === "A" && q.hp > 0);
+  const quantarsB = state.quantars.filter(q => q.owner === "B" && q.hp > 0);
+
+  if (quantarsA.length === 0 && quantarsB.length === 0) {
+    // Both players lost all quantars simultaneously - draw
+    return { winner: null, terminalLoss: null, isDraw: true };
+  }
+
+  if (quantarsA.length === 0) {
+    return { winner: "B", terminalLoss: "A", isDraw: false };
+  }
+
+  if (quantarsB.length === 0) {
+    return { winner: "A", terminalLoss: "B", isDraw: false };
+  }
+
+  return { winner: null, terminalLoss: null, isDraw: false };
 }
 
 // ============================================================================
@@ -466,8 +505,16 @@ export function resolveTurn(input: TurnInput): TurnResult {
   applyDamage(resolutionState);
   removeDeadEntities(resolutionState);
 
-  // Check win condition
-  const winner = checkWinCondition(resolutionState);
+  // Check win condition (includes Terminal Loss check)
+  const { winner, terminalLoss, isDraw } = checkWinCondition(resolutionState);
+
+  if (terminalLoss) {
+    resolutionState.events.push({
+      type: EventType.TerminalLoss,
+      loser: terminalLoss,
+      reason: "no_quantars",
+    });
+  }
 
   if (winner) {
     resolutionState.events.push({
@@ -478,17 +525,17 @@ export function resolveTurn(input: TurnInput): TurnResult {
 
   // Check for max turns (draw condition)
   const nextTurn = state.turn + 1;
-  const isMaxTurnsReached = !winner && nextTurn >= MAX_TURNS;
+  const isMaxTurnsReached = !winner && !isDraw && nextTurn >= MAX_TURNS;
   
-  if (isMaxTurnsReached) {
+  if (isMaxTurnsReached || isDraw) {
     resolutionState.events.push({
       type: EventType.Draw,
-      reason: "max_turns",
+      reason: isDraw ? "mutual_destruction" : "max_turns",
     });
   }
 
-  // Game ends if there's a winner OR max turns reached
-  const gameEnded = winner !== null || isMaxTurnsReached;
+  // Game ends if there's a winner, draw, or max turns reached
+  const gameEnded = winner !== null || isDraw || isMaxTurnsReached;
 
   // Build final immutable state
   const newState: GameState = {

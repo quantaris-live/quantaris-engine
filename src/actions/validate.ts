@@ -9,12 +9,15 @@ import type {
   GameState,
   PlayerId,
   Position,
+  PulseDirection,
 } from "../core/types.js";
 import {
   Direction,
   ActionType,
   GamePhase,
   ALL_DIRECTIONS,
+  ALL_PULSE_DIRECTIONS,
+  DIAGONAL_DIRECTIONS,
 } from "../core/types.js";
 import { getQuantar, getPlayerQuantars, isInBounds } from "../core/state.js";
 
@@ -53,31 +56,48 @@ export function isValidDirection(dir: unknown): dir is Direction {
   return typeof dir === "string" && (ALL_DIRECTIONS as readonly string[]).includes(dir);
 }
 
-/**
- * Get the position delta for a direction
- */
-export function getDirectionDelta(direction: Direction): Position {
-  switch (direction) {
-    case Direction.North:
-      return { x: 0, y: -1 };
-    case Direction.South:
-      return { x: 0, y: 1 };
-    case Direction.East:
-      return { x: 1, y: 0 };
-    case Direction.West:
-      return { x: -1, y: 0 };
-  }
+export function isValidPulseDirection(dir: unknown): dir is PulseDirection {
+  return typeof dir === "string" && (ALL_PULSE_DIRECTIONS as readonly string[]).includes(dir);
 }
 
-/**
- * Apply a direction to a position
- */
-export function applyDirection(position: Position, direction: Direction): Position {
-  const delta = getDirectionDelta(direction);
-  return {
-    x: position.x + delta.x,
-    y: position.y + delta.y,
-  };
+export function isDiagonalPulse(dir: PulseDirection): boolean {
+  return (DIAGONAL_DIRECTIONS as readonly string[]).includes(dir);
+}
+
+const DIRECTION_DELTAS: Record<Direction, Position> = {
+  N: { x: 0, y: -1 },
+  E: { x: 1, y: 0 },
+  S: { x: 0, y: 1 },
+  W: { x: -1, y: 0 },
+};
+
+const PULSE_DIRECTION_DELTAS: Record<PulseDirection, Position> = {
+  N: { x: 0, y: -1 },
+  E: { x: 1, y: 0 },
+  S: { x: 0, y: 1 },
+  W: { x: -1, y: 0 },
+  NE: { x: 1, y: -1 },
+  NW: { x: -1, y: -1 },
+  SE: { x: 1, y: 1 },
+  SW: { x: -1, y: 1 },
+};
+
+export function getDirectionDelta(direction: Direction): Position {
+  return DIRECTION_DELTAS[direction];
+}
+
+export function getPulseDirectionDelta(direction: PulseDirection): Position {
+  return PULSE_DIRECTION_DELTAS[direction];
+}
+
+export function applyDirection(pos: Position, dir: Direction): Position {
+  const d = DIRECTION_DELTAS[dir];
+  return { x: pos.x + d.x, y: pos.y + d.y };
+}
+
+export function applyPulseDirection(pos: Position, dir: PulseDirection): Position {
+  const d = PULSE_DIRECTION_DELTAS[dir];
+  return { x: pos.x + d.x, y: pos.y + d.y };
 }
 
 // ============================================================================
@@ -151,13 +171,15 @@ export function validateAction(
     }
 
     case ActionType.Pulse: {
-      if (!isValidDirection(action.direction)) {
+      if (!isValidPulseDirection(action.direction)) {
         return {
           valid: false,
-          error: `Invalid direction: ${action.direction}`,
+          error: `Invalid pulse direction: ${action.direction}`,
           code: "INVALID_DIRECTION",
         };
       }
+      // Diagonal pulse is melee (range 1), orthogonal is ranged
+      // Both are valid - range handling is in resolution
       break;
     }
 

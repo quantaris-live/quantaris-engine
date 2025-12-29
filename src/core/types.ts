@@ -18,7 +18,7 @@ export const Player = {
 } as const;
 export type PlayerId = (typeof Player)[keyof typeof Player];
 
-/** Cardinal directions for movement and pulse */
+/** Cardinal directions for movement */
 export const Direction = {
   North: "N",
   East: "E",
@@ -27,10 +27,24 @@ export const Direction = {
 } as const;
 export type Direction = (typeof Direction)[keyof typeof Direction];
 
-/** All valid directions as array (for validation) */
-export const ALL_DIRECTIONS: readonly Direction[] = Object.values(Direction);
+/** 8 pulse directions: orthogonal (ranged) + diagonal (melee) */
+export const PulseDirection = {
+  North: "N", East: "E", South: "S", West: "W",
+  NorthEast: "NE", NorthWest: "NW", SouthEast: "SE", SouthWest: "SW",
+} as const;
+export type PulseDirection = (typeof PulseDirection)[keyof typeof PulseDirection];
 
-/** Action types */
+export const ALL_DIRECTIONS: readonly Direction[] = Object.values(Direction);
+export const ALL_PULSE_DIRECTIONS: readonly PulseDirection[] = Object.values(PulseDirection);
+
+/** Diagonal = melee (range=1) */
+export const DIAGONAL_DIRECTIONS: readonly PulseDirection[] = [
+  PulseDirection.NorthEast,
+  PulseDirection.NorthWest,
+  PulseDirection.SouthEast,
+  PulseDirection.SouthWest,
+];
+
 export const ActionType = {
   Move: "MOVE",
   Pulse: "PULSE",
@@ -83,11 +97,11 @@ export interface MoveAction {
   readonly direction: Direction;
 }
 
-/** Fire a beam in a direction */
+/** Fire a pulse: orthogonal=ranged, diagonal=melee (range 1) */
 export interface PulseAction {
   readonly type: typeof ActionType.Pulse;
   readonly quantarId: string;
-  readonly direction: Direction;
+  readonly direction: PulseDirection;
 }
 
 /** Reduce incoming damage by 1 this turn */
@@ -145,6 +159,7 @@ export const EventType = {
   DamageApplied: "DAMAGE_APPLIED",
   EntityDestroyed: "ENTITY_DESTROYED",
   GameOver: "GAME_OVER",
+  TerminalLoss: "TERMINAL_LOSS",
   Draw: "DRAW",
 } as const;
 
@@ -152,14 +167,15 @@ export const EventType = {
 export type TurnEvent =
   | { readonly type: typeof EventType.Move; readonly quantarId: string; readonly from: Position; readonly to: Position }
   | { readonly type: typeof EventType.MoveBlocked; readonly quantarId: string; readonly from: Position; readonly direction: Direction; readonly reason: string }
-  | { readonly type: typeof EventType.PulseFired; readonly quantarId: string; readonly from: Position; readonly direction: Direction }
+  | { readonly type: typeof EventType.PulseFired; readonly quantarId: string; readonly from: Position; readonly direction: PulseDirection }
   | { readonly type: typeof EventType.PulseHit; readonly targetId: string; readonly targetType: EntityType; readonly damage: number }
   | { readonly type: typeof EventType.PulseMiss; readonly quantarId: string }
   | { readonly type: typeof EventType.ShieldActivated; readonly quantarId: string }
   | { readonly type: typeof EventType.DamageApplied; readonly targetId: string; readonly damage: number; readonly remainingHp: number }
   | { readonly type: typeof EventType.EntityDestroyed; readonly entityId: string; readonly entityType: EntityType }
   | { readonly type: typeof EventType.GameOver; readonly winner: PlayerId }
-  | { readonly type: typeof EventType.Draw; readonly reason: "max_turns" };
+  | { readonly type: typeof EventType.TerminalLoss; readonly loser: PlayerId; readonly reason: "no_quantars" }
+  | { readonly type: typeof EventType.Draw; readonly reason: "max_turns" | "mutual_destruction" };
 
 /** Log of everything that happened in a turn */
 export interface TurnLog {
